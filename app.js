@@ -1,6 +1,7 @@
 const express = require("express");
 const bodyParser = require("body-parser");
 const mongoose = require("mongoose");
+const _ = require("lodash");
 
 const app = express();
 
@@ -9,7 +10,7 @@ app.set('view engine', 'ejs');
 app.use(bodyParser.urlencoded({extended: true}));
 app.use(express.static("public"));
 
-mongoose.connect("mongodb://localhost:27017/todolistDB", { useUnifiedTopology: true, useNewUrlParser: true });
+mongoose.connect("mongodb://localhost:27017/todolistDB", { useUnifiedTopology: true, useNewUrlParser: true, useFindAndModify: false });
 
 const itemsSchema = ({
   name: String
@@ -83,20 +84,30 @@ app.post("/", function(req, res){
 
 app.post("/delete", function(req, res){
   const checkboxId = req.body.checkbox;
+  const listName = req.body.listName;
 
-  Item.findByIdAndRemove(checkboxId, function(err){
-    if(err){
-      console.log(err);
-    }else{
-      console.log("Successfully deleted the item!");
-    }
-    res.redirect("/");
-  });
+  if(listName === "Today"){
+    Item.findByIdAndRemove(checkboxId, function(err){
+      if(err){
+        console.log(err);
+      }else{
+        console.log("Successfully deleted the item!");
+      }
+      res.redirect("/");
+    });
+  }else{
+    List.findOneAndUpdate({name: listName}, {$pull: {items: {_id: checkboxId }}}, function(err, foundList){
+      if(!err){
+        res.redirect("/" + listName);
+      }
+    });
+  }
+
 
 });
 
 app.get("/:customListName", function(req,res){
-  let customListName = req.params.customListName; 
+  let customListName = _.capitalize(req.params.customListName); 
 
   List.findOne({name: customListName}, function(err, foundList){
     if(err){
